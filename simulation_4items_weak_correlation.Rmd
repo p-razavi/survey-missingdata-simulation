@@ -1,5 +1,5 @@
 ---
-title: "Effect of missingness - four items w/ "weak" correlations"
+title: "Effect of missingness - four items w/ weak correlations"
 output: html_document
 author: "Pooya Razavi"
 date: "last knitted: `r Sys.time()`"
@@ -52,7 +52,7 @@ sample_size_options <- c(5000, 3000, 1000, 500, 200)
 
 # Simulation
 
-```{r}
+```{r results=FALSE, fig.show='hide'}
 
 for (sample_size in sample_size_options) {
 
@@ -143,9 +143,10 @@ for (sample_size in sample_size_options) {
 ```
 
 
-# All plots together
+# Outcome
 
-```{r fig.width=5, fig.height=16}
+```{r fig.width=6, fig.height=17, warning=FALSE, fig.align='center'}
+
 ggpubr::ggarrange(plot_5000, plot_3000, plot_1000, plot_500, plot_200, 
           ncol = 1, nrow = 5)
 ```
