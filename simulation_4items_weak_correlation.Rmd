@@ -1,0 +1,152 @@
+---
+title: "Effect of missingness - four items w/ "weak" correlations"
+output: html_document
+author: "Pooya Razavi"
+date: "last knitted: `r Sys.time()`"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(MASS)
+library(tidyverse)
+library(GGally)
+
+set.seed(110)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Goal:** Determine the extent to which missing data can affect the accuracy of the results of a survey. <br>
+
+**Survey parameters:** <br>
+_Number of items:_ 4 <br>
+_Average item interrelations:_ weak (r ~ .25) <br>
+
+**Simulation parameters:** <br>
+_Sample sizes:_ 5000, 3000, 1000, 500, and 200 <br>
+_Number of iterations per condition:_ 100
+_Missingness range:_ from 10 to 90 percent
+
+# Set up the parameters
+
+```{r}
+
+#correlation matrix
+cor_matrix <- rbind(c(1, .25, .35, .15),
+                    c(.25, 1, .2, .25),
+                    c(.35, .2, 1, .1),
+                    c(.15, .25, .1, 1))
+
+cor_matrix
+
+#vector of means
+mean_vector <- c(5, 3, 4, 5)
+
+#sample sizes for the simulation
+sample_size_options <- c(5000, 3000, 1000, 500, 200)
+
+
+```
+
+
+# Simulation
+
+```{r}
+
+for (sample_size in sample_size_options) {
+
+  #simulate the data
+  df <- as.data.frame(mvrnorm(n = sample_size, 
+                                  mu = mean_vector, 
+                                  Sigma = cor_matrix))
+  
+  
+  # Testing the effect of missingness
+  
+  sim_summary <- data.frame(n = NA,
+                            missing = NA,
+                            iteration = NA,
+                            sum_abs_dev = NA)
+  
+  missing_prob <- seq(0.1, .9, by = 0.025) #test NA percentage bet. .1 and .9
+  
+  for (missing in missing_prob) {
+  
+    for (iteration in 1:100) {
+    
+    #creating a matrix of NAs
+    
+      for (i in 5:8) {
+          df[, i] <- sample(c("response", NA),
+                        replace = TRUE,
+                        size = sample_size,
+                        prob = c(1 - missing, missing))
+        }
+    
+    #apply NAs to the complete dataset
+    df_w_na <- df %>% 
+                  dplyr::mutate(V1_na = if_else(V5 == "response", V1, -100),
+                                V2_na = if_else(V6 == "response", V2, -100),
+                                V3_na = if_else(V7 == "response", V3, -100),
+                                V4_na = if_else(V8 == "response", V4, -100)
+                                  ) %>% 
+                  dplyr::select(contains("_na"))
+    
+    #correlation matrix for the df with NAs
+    cor_matrix_w_na <- cor(df_w_na, use = "pairwise.complete.obs") %>% round(2)
+    
+    
+    #the original correlation matrix
+    orig_cor_matrix <- cor(df[, 1:4]) %>% round(2)
+    
+    #compare the original correlation matrix and the one with NAs
+    dif_cor_matrix <- orig_cor_matrix - cor_matrix_w_na
+    
+    #sum of absolute deviation
+    sum_abs_dev <- sum(abs(dif_cor_matrix)) / 2
+    
+    #save the output of this iteration
+    sim_summary <- rbind(sim_summary, c(sample_size, missing, iteration, sum_abs_dev))
+    
+    #print the iteration step (this is important for long simulations)
+    print(paste0("simulation step: n = ", sample_size, ", %NA = ", missing, ", iter. = ", iteration))
+     
+    }
+  }
+
+  #save the plot based on the full simulation for the assigned sample size
+  summary_plot <- sim_summary[-1,] %>% 
+                dplyr::group_by(missing) %>% 
+                summarise(med_dev = median(sum_abs_dev),
+                          sd = sd(sum_abs_dev)) %>% 
+                ggplot(aes(x = missing, y = med_dev)) +
+                      geom_line(color = "darkgray") +
+                      geom_point() +
+                      ylim(0, 2) +
+                      labs(
+                           title = paste0("N = ", sample_size),
+                           x = "Proportion of missing data",
+                           y = "Median sum of absolute deviation") +
+                geom_errorbar(aes(ymin = med_dev - sd/2, ymax = med_dev + sd/2), width=.01,
+                   color = "gray") +
+                geom_hline(yintercept = .18, linetype = "dashed", 
+                      color = "red", size = .5) +
+                theme_minimal() 
+  
+  print(summary_plot) 
+  plot_name <- paste0("plot_", sample_size)
+  assign(plot_name, summary_plot)
+
+}
+
+```
+
+
+# All plots together
+
+```{r fig.width=5, fig.height=16}
+ggpubr::ggarrange(plot_5000, plot_3000, plot_1000, plot_500, plot_200, 
+          ncol = 1, nrow = 5)
+```
+
