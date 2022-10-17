@@ -25,8 +25,9 @@ _Average item interrelations:_ weak (r ~ .25) <br>
 
 **Simulation parameters:** <br>
 _Sample sizes:_ 5000, 3000, 1000, 500, and 200 <br>
-_Number of iterations per condition:_ 100
-_Missingness range:_ from 10 to 90 percent
+_Number of iterations per condition:_ 100 <br>
+_Missingness range:_ from 10 to 90 percent <br>
+_Evaluated outcomes:_ (a) correlation between the items, (b) mean of the four items <br>
 
 # Set up the parameters
 
@@ -67,7 +68,8 @@ for (sample_size in sample_size_options) {
   sim_summary <- data.frame(n = NA,
                             missing = NA,
                             iteration = NA,
-                            sum_abs_dev = NA)
+                            sum_abs_dev = NA,
+                            abs_mean_dif = NA)
   
   missing_prob <- seq(0.1, .9, by = 0.025) #test NA percentage bet. .1 and .9
   
@@ -93,21 +95,31 @@ for (sample_size in sample_size_options) {
                                   ) %>% 
                   dplyr::select(contains("_na"))
     
-    #correlation matrix for the df with NAs
-    cor_matrix_w_na <- cor(df_w_na, use = "pairwise.complete.obs") %>% round(2)
+    ##outcome 1: correlation between items
+      #correlation matrix for the df with NAs
+      cor_matrix_w_na <- cor(df_w_na, use = "pairwise.complete.obs") %>% round(2)
+      
+      
+      #the original correlation matrix
+      orig_cor_matrix <- cor(df[, 1:4]) %>% round(2)
+      
+      #compare the original correlation matrix and the one with NAs
+      dif_cor_matrix <- orig_cor_matrix - cor_matrix_w_na
+      
+      #sum of absolute deviation
+      sum_abs_dev <- sum(abs(dif_cor_matrix)) / 2
     
-    
-    #the original correlation matrix
-    orig_cor_matrix <- cor(df[, 1:4]) %>% round(2)
-    
-    #compare the original correlation matrix and the one with NAs
-    dif_cor_matrix <- orig_cor_matrix - cor_matrix_w_na
-    
-    #sum of absolute deviation
-    sum_abs_dev <- sum(abs(dif_cor_matrix)) / 2
+    ##outcome 2: mean of four items  
+      #the mean of four items (no NAs)
+      complete_mean <- (mean(df[,1]) + mean(df[,2]) + mean(df[,3]) + mean(df[,4]))/4
+      #the mean of four items (w/ NAs)
+      df_w_na_mean <- (mean(df_w_na[,1], na.rm = T) + mean(df_w_na[,2], na.rm = T) + 
+                         mean(df_w_na[,3], na.rm = T) + mean(df_w_na[,4], na.rm = T))/4
+      #absolute mean difference bet. complete and sparse datasets
+      abs_mean_dif <- abs(complete_mean - df_w_na_mean)
     
     #save the output of this iteration
-    sim_summary <- rbind(sim_summary, c(sample_size, missing, iteration, sum_abs_dev))
+    sim_summary <- rbind(sim_summary, c(sample_size, missing, iteration, sum_abs_dev, abs_mean_dif))
     
     #print the iteration step (this is important for long simulations)
     print(paste0("simulation step: n = ", sample_size, ", %NA = ", missing, ", iter. = ", iteration))
@@ -115,39 +127,72 @@ for (sample_size in sample_size_options) {
     }
   }
 
-  #save the plot based on the full simulation for the assigned sample size
-  summary_plot <- sim_summary[-1,] %>% 
-                dplyr::group_by(missing) %>% 
-                summarise(med_dev = median(sum_abs_dev),
-                          sd = sd(sum_abs_dev)) %>% 
-                ggplot(aes(x = missing, y = med_dev)) +
-                      geom_line(color = "darkgray") +
-                      geom_point() +
-                      ylim(0, 2) +
-                      labs(
-                           title = paste0("N = ", sample_size),
-                           x = "Proportion of missing data",
-                           y = "Median sum of absolute deviation") +
-                geom_errorbar(aes(ymin = med_dev - sd/2, ymax = med_dev + sd/2), width=.01,
-                   color = "gray") +
-                geom_hline(yintercept = .18, linetype = "dashed", 
-                      color = "red", size = .5) +
-                theme_minimal() 
+  #save the plots for the 2 outcomes based on the full simulation for the assigned sample size
+  summary_plot_cor <- sim_summary[-1,] %>% 
+                        dplyr::group_by(missing) %>% 
+                        summarise(med_dev = median(sum_abs_dev),
+                                  sd = sd(sum_abs_dev)) %>% 
+                        ggplot(aes(x = missing, y = med_dev)) +
+                              geom_line(color = "darkgray") +
+                              geom_point() +
+                              ylim(0, 2) +
+                              labs(
+                                   title = paste0("N = ", sample_size),
+                                   x = "Proportion of missing data",
+                                   y = "Median sum of absolute deviation") +
+                        geom_errorbar(aes(ymin = med_dev - sd/2, ymax = med_dev + sd/2), width=.01,
+                           color = "gray") +
+                        geom_hline(yintercept = .18, linetype = "dashed", 
+                              color = "red", size = .5) +
+                        theme_minimal() 
   
-  print(summary_plot) 
-  plot_name <- paste0("plot_", sample_size)
-  assign(plot_name, summary_plot)
+  summary_plot_mean <- sim_summary[-1,] %>% 
+                        dplyr::group_by(missing) %>% 
+                        summarise(med_dev = median(abs_mean_dif),
+                                  sd = sd(abs_mean_dif)) %>% 
+                        ggplot(aes(x = missing, y = med_dev)) +
+                              geom_line(color = "darkgray") +
+                              geom_point() +
+                              ylim(0, .5) +
+                              labs(
+                                   title = paste0("N = ", sample_size),
+                                   x = "Proportion of missing data",
+                                   y = "Median absolute mean difference") +
+                        geom_errorbar(aes(ymin = med_dev - sd/2, ymax = med_dev + sd/2), width=.01,
+                           color = "gray") +
+                        #geom_hline(yintercept = .18, linetype = "dashed", 
+                        #      color = "red", size = .5) +
+                        theme_minimal() 
+  
+  print(summary_plot_cor)
+  print(summary_plot_mean)
+  
+  #save the plots as objects to be used outside the loop
+  cor_plot_name <- paste0("plot_cor_", sample_size)
+  assign(cor_plot_name, summary_plot_cor)
+  
+  mean_plot_name <- paste0("plot_mean_", sample_size)
+  assign(mean_plot_name, summary_plot_mean)
 
 }
 
 ```
 
 
-# Outcome
+# Outcome 1: Difference bet. Correlations
 
 ```{r fig.width=6, fig.height=17, warning=FALSE, fig.align='center'}
 
-ggpubr::ggarrange(plot_5000, plot_3000, plot_1000, plot_500, plot_200, 
+ggpubr::ggarrange(plot_cor_5000, plot_cor_3000, plot_cor_1000, plot_cor_500, plot_cor_200, 
+          ncol = 1, nrow = 5)
+```
+
+
+# Outcome 2: Difference bet. Means
+
+```{r fig.width=6, fig.height=17, warning=FALSE, fig.align='center'}
+
+ggpubr::ggarrange(plot_mean_5000, plot_mean_3000, plot_mean_1000, plot_mean_500, plot_mean_200, 
           ncol = 1, nrow = 5)
 ```
 
