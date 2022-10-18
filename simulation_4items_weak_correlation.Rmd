@@ -21,7 +21,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 **Survey parameters:** <br>
 _Number of items:_ 4 <br>
-_Average item interrelations:_ weak (r ~ .25) <br>
+_Average item interrelations:_ weak (mean(r) = .2) <br>
 
 **Simulation parameters:** <br>
 _Sample sizes:_ 5000, 3000, 1000, 500, and 200 <br>
@@ -34,10 +34,10 @@ _Evaluated outcomes:_ (a) correlation between the items, (b) mean of the four it
 ```{r}
 
 #correlation matrix
-cor_matrix <- rbind(c(1, .25, .35, .15),
+cor_matrix <- rbind(c(1, .25, .3, .1),
                     c(.25, 1, .2, .25),
-                    c(.35, .2, 1, .1),
-                    c(.15, .25, .1, 1))
+                    c(.3, .2, 1, .1),
+                    c(.1, .25, .1, 1))
 
 cor_matrix
 
@@ -181,6 +181,8 @@ for (sample_size in sample_size_options) {
 
 # Outcome 1: Difference bet. Correlations
 
+For this outcome, I compare the correlation matrix based on the complete data and correlation matrix based on the dataset that has NAs. The larger the differences, the stronger the deviation caused by missing data.
+
 ```{r fig.width=6, fig.height=17, warning=FALSE, fig.align='center'}
 
 ggpubr::ggarrange(plot_cor_5000, plot_cor_3000, plot_cor_1000, plot_cor_500, plot_cor_200, 
@@ -188,7 +190,9 @@ ggpubr::ggarrange(plot_cor_5000, plot_cor_3000, plot_cor_1000, plot_cor_500, plo
 ```
 
 
-# Outcome 2: Difference bet. Means
+# Outcome 2: Difference between Means
+
+For this outcome, I compare the mean of 4 items based on the complete data and mean of four items based on the dataset that has NAs. The larger the differences, the stronger the deviation caused by missing data.
 
 ```{r fig.width=6, fig.height=17, warning=FALSE, fig.align='center'}
 
